@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MNIST Digit Recognition — Demo</title>
   <meta name="description"
-    content="Testez le modele EfficientNetV2S fine-tune sur MNIST : dessinez un chiffre ou uploadez une image." />
+    content="Testez le modele CNN Custom sur MNIST : dessinez un chiffre ou uploadez une image." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
@@ -845,7 +845,7 @@
       <div class="logo-badge">M</div>
       <div class="header-text">
         <h1>MNIST Digit Recognition</h1>
-        <p>EfficientNetV2S fine-tune — 10 classes (0 a 9)</p>
+        <p>CNN Custom (PyTorch) — 10 classes (0 a 9)</p>
       </div>
       <span class="header-badge">v1.0.0</span>
     </header>
@@ -964,7 +964,7 @@
 
     <!-- Footer -->
     <footer>
-      Modele EfficientNetV2S entraine sur MNIST &mdash;
+      Modele CNN Custom entraine sur MNIST &mdash;
       <a href="https://www.kaggle.com/models/parfaitbotchi1/mnist" target="_blank">Kaggle Model</a>
       &nbsp;|&nbsp;
       <a href="#" onclick="document.getElementById('configHeader').click(); return false;">Configurer l'API</a>
@@ -1161,12 +1161,12 @@
       hideError();
       showSpinner();
       try {
-        // Redimensionner à 28×28 px (format MNIST attendu par le modèle)
+        // Redimensionner à 32×32 px (format attendu par le modèle)
         const offscreen = document.createElement('canvas');
-        offscreen.width = 28;
-        offscreen.height = 28;
+        offscreen.width = 32;
+        offscreen.height = 32;
         const octx = offscreen.getContext('2d');
-        octx.drawImage(canvas, 0, 0, 28, 28);
+        octx.drawImage(canvas, 0, 0, 32, 32);
         const blob = await new Promise(r => offscreen.toBlob(r, 'image/png'));
         const fd = new FormData();
         fd.append('file', blob, 'digit.png');
