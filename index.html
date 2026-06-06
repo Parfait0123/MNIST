@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MNIST Digit Recognition — Demo</title>
+  <meta name="description"
+    content="Testez le modele EfficientNetV2S fine-tune sur MNIST : dessinez un chiffre ou uploadez une image." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #09090f;
+      --surface: #12121c;
+      --surface2: #1a1a2e;
+      --border: rgba(255, 255, 255, 0.07);
+      --accent: #6366f1;
+      --accent2: #818cf8;
+      --accent-glow: rgba(99, 102, 241, 0.35);
+      --success: #22d3a5;
+      --warn: #f59e0b;
+      --text: #f1f1f8;
+      --muted: #8b8ba8;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    html,
+    body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ── Background decoration ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 90%, rgba(129, 140, 248, 0.08) 0%, transparent 55%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .app {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 28px 40px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), #a5b4fc);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+      box-shadow: 0 0 24px var(--accent-glow);
+      flex-shrink: 0;
+    }
+
+    .header-text h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .header-text p {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .header-badge {
+      margin-left: auto;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent2);
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      border-radius: 20px;
+      padding: 4px 12px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Main layout ── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 0;
+    }
+
+    /* ── Left panel ── */
+    .left-panel {
+      border-right: 1px solid var(--border);
+      padding: 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      padding: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 9px 0;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 12px var(--accent-glow);
+    }
+
+    /* ── Canvas section ── */
+    .canvas-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .canvas-section.hidden {
+      display: none;
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      border-radius: var(--radius);
+      border: 2px solid var(--border);
+      overflow: hidden;
+      background: #000;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.4);
+      cursor: crosshair;
+      transition: border-color 0.2s;
+    }
+
+    .canvas-wrapper:hover {
+      border-color: rgba(99, 102, 241, 0.5);
+    }
+
+    .canvas-wrapper.active-draw {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow), 0 0 40px rgba(0, 0, 0, 0.4);
+    }
+
+    #drawCanvas {
+      display: block;
+      width: 360px;
+      height: 360px;
+    }
+
+    .canvas-hint {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* ── Upload section ── */
+    .upload-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .upload-section.hidden {
+      display: none;
+    }
+
+    .upload-zone {
+      width: 360px;
+      height: 360px;
+      border: 2px dashed rgba(99, 102, 241, 0.35);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: rgba(99, 102, 241, 0.04);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.09);
+    }
+
+    .upload-zone img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: var(--radius);
+    }
+
+    .upload-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: rgba(99, 102, 241, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .upload-zone p {
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .upload-zone strong {
+      color: var(--accent2);
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    /* ── Controls row ── */
+    .controls {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 11px 0;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all 0.2s;
+      letter-spacing: 0.3px;
+    }
+
+    .btn-ghost {
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #818cf8);
+      color: #fff;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 22px var(--accent-glow);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ── API Config ── */
+    .config-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+    }
+
+    .config-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .config-header span {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .config-header .chevron {
+      font-size: 11px;
+      transition: transform 0.2s;
+    }
+
+    .config-header.open .chevron {
+      transform: rotate(180deg);
+    }
+
+    .config-body {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .config-body.hidden {
+      display: none;
+    }
+
+    .field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 5px;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 9px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: 'Inter', monospace;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .field input:focus {
+      border-color: var(--accent);
+    }
+
+    .field input::placeholder {
+      color: var(--muted);
+    }
+
+    /* ── Right panel ── */
+    .right-panel {
+      padding: 32px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .empty-state .icon {
+      font-size: 56px;
+      opacity: 0.3;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+    }
+
+    /* ── Results ── */
+    .results {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .results.hidden {
+      display: none;
+    }
+
+    /* Main prediction card */
+    .prediction-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .prediction-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .digit-display {
+      width: 110px;
+      height: 110px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--accent), #a5b4fc);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+      font-weight: 800;
+      color: #fff;
+      box-shadow: 0 0 40px var(--accent-glow);
+      flex-shrink: 0;
+      letter-spacing: -2px;
+      animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes popIn {
+      from {
+        transform: scale(0.6);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .prediction-info {
+      flex: 1;
+    }
+
+    .prediction-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .prediction-value {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #fff, var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.1;
+    }
+
+    .confidence-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .confidence-bar-outer {
+      flex: 1;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .confidence-bar-inner {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .confidence-pct {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent2);
+      min-width: 46px;
+      text-align: right;
+    }
+
+    /* ── Top 3 ── */
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .top3-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .top3-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      animation: slideIn 0.4s ease both;
+    }
+
+    .top3-item:nth-child(1) {
+      animation-delay: 0.05s;
+    }
+
+    .top3-item:nth-child(2) {
+      animation-delay: 0.1s;
+    }
+
+    .top3-item:nth-child(3) {
+      animation-delay: 0.15s;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(12px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .top3-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 7px;
+    }
+
+    .top3-rank {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .rank-1 {
+      background: rgba(251, 191, 36, 0.15);
+      color: #fbbf24;
+    }
+
+    .rank-2 {
+      background: rgba(148, 163, 184, 0.15);
+      color: #94a3b8;
+    }
+
+    .rank-3 {
+      background: rgba(205, 127, 50, 0.15);
+      color: #cd7f32;
+    }
+
+    .top3-label {
+      font-size: 20px;
+      font-weight: 700;
+      flex: 1;
+    }
+
+    .top3-pct {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .top3-bar-outer {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .top3-bar-inner {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .rank-1~* .top3-bar-inner,
+    .bar-rank-1 {
+      background: linear-gradient(90deg, #fbbf24, #f59e0b);
+    }
+
+    .bar-rank-2 {
+      background: linear-gradient(90deg, #94a3b8, #64748b);
+    }
+
+    .bar-rank-3 {
+      background: linear-gradient(90deg, #cd7f32, #b8722a);
+    }
+
+    /* ── All probabilities ── */
+    .proba-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    .proba-cell {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 8px;
+      text-align: center;
+      transition: all 0.2s;
+      animation: fadeUp 0.4s ease both;
+    }
+
+    .proba-cell.best {
+      border-color: rgba(99, 102, 241, 0.5);
+      background: rgba(99, 102, 241, 0.08);
+      box-shadow: 0 0 14px rgba(99, 102, 241, 0.15);
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .proba-digit {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .proba-pct {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .proba-mini-bar {
+      height: 3px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .proba-mini-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: var(--accent);
+      transition: width 0.5s ease;
+    }
+
+    /* ── Error ── */
+    .error-box {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      font-size: 13px;
+      color: #fca5a5;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .error-box.hidden {
+      display: none;
+    }
+
+    /* ── Spinner ── */
+    .spinner-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99;
+      background: rgba(9, 9, 15, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      backdrop-filter: blur(4px);
+    }
+
+    .spinner-overlay.hidden {
+      display: none;
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid rgba(99, 102, 241, 0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .spinner-overlay p {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 16px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    footer a {
+      color: var(--accent2);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 860px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .left-panel {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      header {
+        padding: 20px 20px 16px;
+      }
+
+      .left-panel,
+      .right-panel {
+        padding: 20px;
+      }
+
+      #drawCanvas {
+        width: 300px;
+        height: 300px;
+      }
+
+      .upload-zone {
+        width: 300px;
+        height: 300px;
+      }
+
+      .proba-grid {
+        grid-template-columns: repeat(5, 1fr);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header>
+      <div class="logo-badge">M</div>
+      <div class="header-text">
+        <h1>MNIST Digit Recognition</h1>
+        <p>EfficientNetV2S fine-tune — 10 classes (0 a 9)</p>
+      </div>
+      <span class="header-badge">v1.0.0</span>
+    </header>
+
+    <!-- Main -->
+    <main>
+
+      <!-- LEFT PANEL -->
+      <div class="left-panel">
+
+        <!-- Tabs -->
+        <div class="tabs">
+          <button class="tab-btn active" id="tabDraw" onclick="switchTab('draw')">Dessiner</button>
+          <button class="tab-btn" id="tabUpload" onclick="switchTab('upload')">Importer</button>
+        </div>
+
+        <!-- DRAW -->
+        <div class="canvas-section" id="drawSection">
+          <div class="canvas-wrapper" id="canvasWrapper">
+            <canvas id="drawCanvas" width="360" height="360"></canvas>
+          </div>
+          <p class="canvas-hint">Dessinez un chiffre (0-9) dans le carre noir</p>
+          <div class="controls">
+            <button class="btn btn-ghost" onclick="clearCanvas()">Effacer</button>
+            <button class="btn btn-primary" id="predictDrawBtn" onclick="predictDraw()">Predire</button>
+          </div>
+        </div>
+
+        <!-- UPLOAD -->
+        <div class="upload-section hidden" id="uploadSection">
+          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
+            ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+            <div class="upload-content" id="uploadContent">
+              <div class="upload-icon">🖼</div>
+              <p><strong>Cliquez</strong> ou glissez une image ici</p>
+              <p>PNG, JPG, BMP, WebP — max 10 MB</p>
+            </div>
+          </div>
+          <input type="file" id="fileInput" accept="image/*" onchange="onFileSelect(event)" />
+          <div class="controls">
+            <button class="btn btn-ghost" onclick="clearUpload()">Effacer</button>
+            <button class="btn btn-primary" id="predictUploadBtn" onclick="predictUpload()">Predire</button>
+          </div>
+        </div>
+
+        <!-- API Config -->
+        <div class="config-card">
+          <div class="config-header" id="configHeader" onclick="toggleConfig()">
+            <span>⚙ Configuration API</span>
+            <span class="chevron">▾</span>
+          </div>
+          <div class="config-body" id="configBody">
+            <div class="field">
+              <label>URL de l'API</label>
+              <input type="text" id="apiUrl" value="https://parfait60-mnist-api.hf.space"
+                placeholder="https://votre-space.hf.space" />
+            </div>
+            <div class="field">
+              <label>API Key (X-API-Key)</label>
+              <input type="password" id="apiKey" value="Test123" placeholder="Votre cle secrete" />
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT PANEL -->
+      <div class="right-panel">
+
+        <!-- Error -->
+        <div class="error-box hidden" id="errorBox">
+          <span>⚠</span>
+          <span id="errorMsg"></span>
+        </div>
+
+        <!-- Empty state -->
+        <div class="empty-state" id="emptyState">
+          <div class="icon">✏</div>
+          <p>Dessinez ou importez un chiffre,<br />puis cliquez sur <strong>Predire</strong>.</p>
+        </div>
+
+        <!-- Results -->
+        <div class="results hidden" id="results">
+
+          <!-- Main card -->
+          <div class="prediction-card" id="predictionCard">
+            <div class="digit-display" id="digitDisplay">?</div>
+            <div class="prediction-info">
+              <div class="prediction-label">Chiffre predit</div>
+              <div class="prediction-value" id="predictionValue">—</div>
+              <div class="confidence-row">
+                <div class="confidence-bar-outer">
+                  <div class="confidence-bar-inner" id="confBar" style="width:0%"></div>
+                </div>
+                <span class="confidence-pct" id="confPct">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top 3 -->
+          <div>
+            <div class="section-title">Top 3 predictions</div>
+            <div class="top3-list" id="top3List"></div>
+          </div>
+
+          <!-- All probabilities -->
+          <div>
+            <div class="section-title">Distribution complete</div>
+            <div class="proba-grid" id="probaGrid"></div>
+          </div>
+
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+      Modele EfficientNetV2S entraine sur MNIST &mdash;
+      <a href="https://www.kaggle.com/models/parfaitbotchi1/mnist" target="_blank">Kaggle Model</a>
+      &nbsp;|&nbsp;
+      <a href="#" onclick="document.getElementById('configHeader').click(); return false;">Configurer l'API</a>
+    </footer>
+
+  </div>
+
+  <!-- Spinner -->
+  <div class="spinner-overlay hidden" id="spinner">
+    <div class="spinner"></div>
+    <p>Inference en cours...</p>
+  </div>
+
+  <script>
+    // ──────────────────────────────────────────────
+    //  Canvas setup
+    // ──────────────────────────────────────────────
+    const canvas = document.getElementById('drawCanvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let lastX = 0, lastY = 0;
+    let hasDrawn = false;
+
+    // Black background
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 22;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    function getPos(e, c) {
+      const r = c.getBoundingClientRect();
+      const scaleX = c.width / r.width;
+      const scaleY = c.height / r.height;
+      if (e.touches) {
+        return [(e.touches[0].clientX - r.left) * scaleX,
+        (e.touches[0].clientY - r.top) * scaleY];
+      }
+      return [(e.clientX - r.left) * scaleX,
+      (e.clientY - r.top) * scaleY];
+    }
+
+    function startDraw(e) {
+      e.preventDefault();
+      isDrawing = true;
+      [lastX, lastY] = getPos(e, canvas);
+      document.getElementById('canvasWrapper').classList.add('active-draw');
+    }
+
+    function draw(e) {
+      e.preventDefault();
+      if (!isDrawing) return;
+      const [x, y] = getPos(e, canvas);
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      [lastX, lastY] = [x, y];
+      hasDrawn = true;
+    }
+
+    function stopDraw(e) {
+      if (!isDrawing) return;
+      isDrawing = false;
+      document.getElementById('canvasWrapper').classList.remove('active-draw');
+    }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDraw);
+    canvas.addEventListener('mouseleave', stopDraw);
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', stopDraw);
+
+    function clearCanvas() {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      hasDrawn = false;
+      hideResults();
+    }
+
+    // ──────────────────────────────────────────────
+    //  Tabs
+    // ──────────────────────────────────────────────
+    let currentTab = 'draw';
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.getElementById('drawSection').classList.toggle('hidden', tab !== 'draw');
+      document.getElementById('uploadSection').classList.toggle('hidden', tab !== 'upload');
+      document.getElementById('tabDraw').classList.toggle('active', tab === 'draw');
+      document.getElementById('tabUpload').classList.toggle('active', tab === 'upload');
+      hideResults();
+    }
+
+    // ──────────────────────────────────────────────
+    //  Upload
+    // ──────────────────────────────────────────────
+    let uploadedFile = null;
+
+    function onFileSelect(e) {
+      const file = e.target.files[0];
+      if (file) setUploadFile(file);
+    }
+
+    function setUploadFile(file) {
+      uploadedFile = file;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const zone = document.getElementById('uploadZone');
+        document.getElementById('uploadContent').style.display = 'none';
+        let img = zone.querySelector('img');
+        if (!img) { img = document.createElement('img'); zone.appendChild(img); }
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+      hideResults();
+    }
+
+    function clearUpload() {
+      uploadedFile = null;
+      document.getElementById('fileInput').value = '';
+      const zone = document.getElementById('uploadZone');
+      const img = zone.querySelector('img');
+      if (img) img.remove();
+      document.getElementById('uploadContent').style.display = '';
+      hideResults();
+    }
+
+    function onDragOver(e) {
+      e.preventDefault();
+      document.getElementById('uploadZone').classList.add('drag-over');
+    }
+
+    function onDragLeave(e) {
+      document.getElementById('uploadZone').classList.remove('drag-over');
+    }
+
+    function onDrop(e) {
+      e.preventDefault();
+      document.getElementById('uploadZone').classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) setUploadFile(file);
+    }
+
+    // ──────────────────────────────────────────────
+    //  Config panel
+    // ──────────────────────────────────────────────
+    let configOpen = true;
+
+    function toggleConfig() {
+      configOpen = !configOpen;
+      document.getElementById('configBody').classList.toggle('hidden', !configOpen);
+      document.getElementById('configHeader').classList.toggle('open', configOpen);
+    }
+    // Open by default
+    document.getElementById('configHeader').classList.add('open');
+
+    // ──────────────────────────────────────────────
+    //  Prediction
+    // ──────────────────────────────────────────────
+    async function callApi(formData) {
+      const baseUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+      const apiKey = document.getElementById('apiKey').value.trim();
+
+      const headers = {};
+      if (apiKey) headers['X-API-Key'] = apiKey;
+
+      const res = await fetch(`${baseUrl}/api/v1/predict`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      if (!res.ok) {
+        let msg = `Erreur ${res.status}`;
+        try {
+          const err = await res.json();
+          msg = err.detail || msg;
+        } catch (_) { }
+        throw new Error(msg);
+      }
+
+      return res.json();
+    }
+
+    async function predictDraw() {
+      if (!hasDrawn) {
+        showError('Le canvas est vide. Dessinez un chiffre avant de predire.');
+        return;
+      }
+      hideError();
+      showSpinner();
+      try {
+        // Redimensionner à 28×28 px (format MNIST attendu par le modèle)
+        const offscreen = document.createElement('canvas');
+        offscreen.width = 28;
+        offscreen.height = 28;
+        const octx = offscreen.getContext('2d');
+        octx.drawImage(canvas, 0, 0, 28, 28);
+        const blob = await new Promise(r => offscreen.toBlob(r, 'image/png'));
+        const fd = new FormData();
+        fd.append('file', blob, 'digit.png');
+        const data = await callApi(fd);
+        showResults(data);
+      } catch (e) {
+        showError(e.message);
+        hideResults();
+      } finally {
+        hideSpinner();
+      }
+    }
+
+    async function predictUpload() {
+      if (!uploadedFile) {
+        showError('Aucune image selectionnee.');
+        return;
+      }
+      hideError();
+      showSpinner();
+      try {
+        const fd = new FormData();
+        fd.append('file', uploadedFile, uploadedFile.name);
+        const data = await callApi(fd);
+        showResults(data);
+      } catch (e) {
+        showError(e.message);
+        hideResults();
+      } finally {
+        hideSpinner();
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    //  Render results
+    // ──────────────────────────────────────────────
+    function showResults(data) {
+      document.getElementById('emptyState').classList.add('hidden');
+      document.getElementById('results').classList.remove('hidden');
+
+      // Main digit
+      const digit = data.prediction;
+      const conf = data.confidence;
+
+      document.getElementById('digitDisplay').textContent = digit;
+      document.getElementById('predictionValue').textContent = `Chiffre  ${digit}`;
+
+      // Force reflow for animation
+      const dd = document.getElementById('digitDisplay');
+      dd.style.animation = 'none';
+      dd.offsetHeight;
+      dd.style.animation = '';
+
+      // Confidence bar
+      setTimeout(() => {
+        document.getElementById('confBar').style.width = (conf * 100).toFixed(1) + '%';
+      }, 50);
+      document.getElementById('confPct').textContent = (conf * 100).toFixed(1) + '%';
+
+      // Top 3
+      const rankColors = ['rank-1', 'rank-2', 'rank-3'];
+      const barRankCls = ['bar-rank-1', 'bar-rank-2', 'bar-rank-3'];
+      const rankLabels = ['1', '2', '3'];
+      const top3List = document.getElementById('top3List');
+      top3List.innerHTML = '';
+
+      data.top3.forEach((item, i) => {
+        const pct = (item.confidence * 100).toFixed(2);
+        const div = document.createElement('div');
+        div.className = 'top3-item';
+        div.innerHTML = `
+        <div class="top3-row">
+          <div class="top3-rank ${rankColors[i]}">${rankLabels[i]}</div>
+          <div class="top3-label">${item.label}</div>
+          <div class="top3-pct">${pct}%</div>
+        </div>
+        <div class="top3-bar-outer">
+          <div class="top3-bar-inner ${barRankCls[i]}" id="topBar${i}" style="width:0%"></div>
+        </div>
+      `;
+        top3List.appendChild(div);
+        setTimeout(() => {
+          document.getElementById(`topBar${i}`).style.width = pct + '%';
+        }, 80 + i * 40);
+      });
+
+      // All probabilities
+      const grid = document.getElementById('probaGrid');
+      grid.innerHTML = '';
+      const probs = data.probabilities;
+      const bestKey = data.prediction;
+
+      Object.keys(probs).sort((a, b) => parseInt(a) - parseInt(b)).forEach((key, idx) => {
+        const p = probs[key];
+        const pct = (p * 100).toFixed(2);
+        const isBest = key === bestKey;
+        const cell = document.createElement('div');
+        cell.className = 'proba-cell' + (isBest ? ' best' : '');
+        cell.style.animationDelay = (idx * 0.03) + 's';
+        cell.innerHTML = `
+        <div class="proba-digit">${key}</div>
+        <div class="proba-pct">${pct}%</div>
+        <div class="proba-mini-bar">
+          <div class="proba-mini-fill" id="mBar${key}" style="width:0%"></div>
+        </div>
+      `;
+        grid.appendChild(cell);
+        setTimeout(() => {
+          document.getElementById('mBar' + key).style.width = (p * 100) + '%';
+        }, 100 + idx * 30);
+      });
+    }
+
+    function hideResults() {
+      document.getElementById('emptyState').classList.remove('hidden');
+      document.getElementById('results').classList.add('hidden');
+    }
+
+    function showError(msg) {
+      const box = document.getElementById('errorBox');
+      document.getElementById('errorMsg').textContent = msg;
+      box.classList.remove('hidden');
+    }
+
+    function hideError() {
+      document.getElementById('errorBox').classList.add('hidden');
+    }
+
+    function showSpinner() { document.getElementById('spinner').classList.remove('hidden'); }
+    function hideSpinner() { document.getElementById('spinner').classList.add('hidden'); }
+  </script>
+</body>
+
+</html>
