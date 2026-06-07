@@ -1,0 +1,13 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1
+torchvision==0.20.1
+albumentations==1.4.21
+Pillow==11.0.0
+numpy==1.26.4
+pydantic==2.10.3
+pydantic-settings==2.6.1
+slowapi==0.1.9
+kagglehub==1.0.0
